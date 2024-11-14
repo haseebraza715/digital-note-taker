@@ -1,106 +1,118 @@
-import React, { useState, useEffect } from "react";
+import React, { useState,  useEffect } from "react";
 import NoteForm from "./NoteForm";
 import NoteList from "./NoteList";
 import axios from "axios";
 import "./App.css";
-import { FaUser } from "react-icons/fa"; // import react-icons for a user icon
+import { FaUser } from "react-icons/fa";
 
 function App() {
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [isDarkTheme, setIsDarkTheme] = useState(true);
   const [error, setError] = useState("");
-  const [isFlaskServerAvailable, setIsFlaskServerAvailable] = useState(false);
+  const [isServerOnline, setIsServerOnline] = useState(true);
+
+  // Check if Flask server is reachable
+  const checkServerStatus = async () => {
+    try {
+      await axios.get("http://127.0.0.1:5000/health"); // Assuming you have a health check endpoint in Flask
+      setIsServerOnline(true);
+    } catch (error) {
+      setIsServerOnline(false);
+    }
+  };
+
+  useEffect(() => {
+    checkServerStatus(); // Check server status on mount
+  }, []);
 
   useEffect(() => {
     document.body.classList.add(isDarkTheme ? "dark-theme" : "light-theme");
     document.body.classList.remove(isDarkTheme ? "light-theme" : "dark-theme");
   }, [isDarkTheme]);
 
-  // Check if Flask server is available
-  const checkFlaskServer = async () => {
-    try {
-      await axios.get("http://127.0.0.1:5000/notes");
-      setIsFlaskServerAvailable(true);
-    } catch (error) {
-      setIsFlaskServerAvailable(false);
-    }
-  };
-
-  useEffect(() => {
-    checkFlaskServer();
-    fetchNotes();
-  }, []);
-
-  // Fetch notes from Flask or local storage
   const fetchNotes = async () => {
-    if (isFlaskServerAvailable) {
+    if (isServerOnline) {
       try {
         const response = await axios.get("http://127.0.0.1:5000/notes");
         setNotes(response.data);
       } catch (error) {
         setError("Error fetching notes:", error);
+        setIsServerOnline(false); // Set server status to offline if request fails
       }
     } else {
-      const savedNotes = JSON.parse(localStorage.getItem("notes")) || [];
-      setNotes(savedNotes);
+      // Fallback to local storage if server is offline
+      const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
+      setNotes(localNotes);
     }
   };
 
-  // Add note to Flask or local storage
+  const generateUniqueId = () => "_" + Math.random().toString(36).substr(2, 9);
+
   const addNote = async (note) => {
+    if (!note.id) {
+      note.id = generateUniqueId(); // Assign unique id if not present
+    }
+
     if (notes.some((n) => n.title === note.title)) {
       alert("A note with this title already exists!");
       return;
     }
 
-    if (isFlaskServerAvailable) {
+    if (isServerOnline) {
       try {
         await axios.post("http://127.0.0.1:5000/notes", note);
         fetchNotes();
       } catch (error) {
         setError("Error adding note:", error);
+        setIsServerOnline(false);
       }
     } else {
-      const updatedNotes = [...notes, note];
-      setNotes(updatedNotes);
-      localStorage.setItem("notes", JSON.stringify(updatedNotes));
+      // Fallback to local storage if server is offline
+      const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
+      localNotes.push(note);
+      localStorage.setItem("notes", JSON.stringify(localNotes));
+      setNotes(localNotes);
     }
   };
 
-  // Update note in Flask or local storage
   const updateNote = async (id, updatedContent) => {
-    if (isFlaskServerAvailable) {
+    if (isServerOnline) {
       try {
         await axios.put(`http://127.0.0.1:5000/notes/${id}`, updatedContent);
         fetchNotes();
         setSelectedNote(null);
       } catch (error) {
         setError("Error updating note:", error);
+        setIsServerOnline(false);
       }
     } else {
-      const updatedNotes = notes.map((note) =>
+      // Update note in local storage if server is offline
+      const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
+      const updatedNotes = localNotes.map((note) =>
         note.id === id ? { ...note, ...updatedContent } : note
       );
-      setNotes(updatedNotes);
       localStorage.setItem("notes", JSON.stringify(updatedNotes));
-      setSelectedNote(null);
+      setNotes(updatedNotes);
     }
   };
 
-  // Delete note in Flask or local storage
   const deleteNote = async (id) => {
-    if (isFlaskServerAvailable) {
+    if (isServerOnline) {
       try {
+        // Delete the specific note from the server by its unique ID
         await axios.delete(`http://127.0.0.1:5000/notes/${id}`);
-        fetchNotes();
+        fetchNotes(); // Refresh the list of notes
       } catch (error) {
         setError("Error deleting note:", error);
+        setIsServerOnline(false); // Switch to offline if there's an error
       }
     } else {
-      const updatedNotes = notes.filter((note) => note.id !== id);
-      setNotes(updatedNotes);
+      // Delete the specific note from local storage by its unique ID
+      const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
+      const updatedNotes = localNotes.filter((note) => note.id !== id); // Ensure only the selected note is removed
       localStorage.setItem("notes", JSON.stringify(updatedNotes));
+      setNotes(updatedNotes); // Update the state with the modified notes array
     }
   };
 
@@ -112,28 +124,22 @@ function App() {
     setIsDarkTheme((prevTheme) => !prevTheme);
   };
 
+  useEffect(() => {
+    fetchNotes();
+  }, [isServerOnline]); // Refetch notes if server status changes
+
   return (
     <div
       className={`app-container ${isDarkTheme ? "dark-theme" : "light-theme"}`}
     >
       <div className="header">
         <div className="title-container">
-          <h1 style={{ color: isDarkTheme ? "#72c7ff" : "#333" }}>
-            Digital Note-Taker
-          </h1>
+          <h1>Digital Note-Taker</h1>
         </div>
         <div className="header-actions">
           <button onClick={toggleTheme} className="theme-toggle">
             {isDarkTheme ? "Switch to Light Theme" : "Switch to Dark Theme"}
           </button>
-          <a
-            href="/how-to-use.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="help-link"
-          >
-            How to Use
-          </a>
           <div className="author-info">
             <FaUser className="header-icon" />
             <span>

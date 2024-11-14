@@ -561,6 +561,65 @@ form button:hover {
     text-align: center;
   }
 }
+
+/* For smaller screens (up to 600px) */
+@media (max-width: 600px) {
+  /* Header adjustments */
+  .header {
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+  }
+
+  .header-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .title-container h1 {
+    font-size: 1.8em; /* Smaller font for mobile */
+    text-align: center;
+  }
+
+  /* Button adjustments */
+  .header-actions button,
+  .header-actions .help-link,
+  .header-actions .author-info {
+    font-size: 0.9em;
+    width: 100%; /* Full width for easier tapping */
+    text-align: center;
+  }
+
+  /* Form adjustments */
+  .main-content form {
+    width: 100%; /* Full width on small screens */
+    max-width: 400px;
+    padding: 15px;
+    margin: 0 auto;
+  }
+
+  .main-content input[type="text"],
+  .main-content textarea {
+    font-size: 1em;
+  }
+
+  /* Note container adjustments */
+  .note-list {
+    grid-template-columns: 1fr; /* Single column layout for notes */
+    gap: 15px;
+    padding: 0 10px;
+  }
+
+  /* Example and footer text */
+  .example,
+  .footer-text {
+    font-size: 0.9em;
+    padding: 10px;
+  }
+}
+
 /* Flexible Font Sizes */
 .form-title,
 .input-label,
