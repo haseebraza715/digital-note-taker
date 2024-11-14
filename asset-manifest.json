@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/digital-note-taker/static/css/main.3af61d5e.css",
-    "main.js": "/digital-note-taker/static/js/main.86d08032.js",
+    "main.js": "/digital-note-taker/static/js/main.79927570.js",
     "index.html": "/digital-note-taker/index.html",
     "main.3af61d5e.css.map": "/digital-note-taker/static/css/main.3af61d5e.css.map",
-    "main.86d08032.js.map": "/digital-note-taker/static/js/main.86d08032.js.map"
+    "main.79927570.js.map": "/digital-note-taker/static/js/main.79927570.js.map"
   },
   "entrypoints": [
     "static/css/main.3af61d5e.css",
-    "static/js/main.86d08032.js"
+    "static/js/main.79927570.js"
   ]
 }
