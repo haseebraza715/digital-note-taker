@@ -14,6 +14,8 @@ client = MongoClient(MONGODB_URI)
 db = client["notes_db"]
 notes_collection = db["notes"]
 
+
+
 # Route to get all notes
 @app.route('/notes', methods=['GET'])
 def get_notes():
