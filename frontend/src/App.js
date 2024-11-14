@@ -1,4 +1,4 @@
-import React, { useState,  useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import NoteForm from "./NoteForm";
 import NoteList from "./NoteList";
 import axios from "axios";
@@ -10,123 +10,126 @@ function App() {
   const [selectedNote, setSelectedNote] = useState(null);
   const [isDarkTheme, setIsDarkTheme] = useState(true);
   const [error, setError] = useState("");
-  const [isServerOnline, setIsServerOnline] = useState(true);
-
-  // Check if Flask server is reachable
-  const checkServerStatus = async () => {
-    try {
-      await axios.get("http://127.0.0.1:5000/health"); // Assuming you have a health check endpoint in Flask
-      setIsServerOnline(true);
-    } catch (error) {
-      setIsServerOnline(false);
-    }
-  };
-
-  useEffect(() => {
-    checkServerStatus(); // Check server status on mount
-  }, []);
+  const [usingLocalStorage, setUsingLocalStorage] = useState(false);
 
   useEffect(() => {
     document.body.classList.add(isDarkTheme ? "dark-theme" : "light-theme");
     document.body.classList.remove(isDarkTheme ? "light-theme" : "dark-theme");
   }, [isDarkTheme]);
 
+  // Check if Flask backend is running on mount
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        await axios.get("http://127.0.0.1:5000/notes");
+        setUsingLocalStorage(false);
+        console.log("Connected to Flask backend.");
+        fetchNotes();
+      } catch (error) {
+        console.warn(
+          "Flask backend not available, switching to local storage."
+        );
+        setUsingLocalStorage(true);
+        loadNotesFromLocalStorage();
+      }
+    };
+    checkBackend();
+  }, []);
+
+  // Fetch notes from Flask if available, otherwise from local storage
   const fetchNotes = async () => {
-    if (isServerOnline) {
+    if (usingLocalStorage) {
+      loadNotesFromLocalStorage();
+    } else {
       try {
         const response = await axios.get("http://127.0.0.1:5000/notes");
         setNotes(response.data);
       } catch (error) {
-        setError("Error fetching notes:", error);
-        setIsServerOnline(false); // Set server status to offline if request fails
+        console.error("Error fetching notes:", error);
+        setError("Error fetching notes.");
       }
-    } else {
-      // Fallback to local storage if server is offline
-      const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
-      setNotes(localNotes);
     }
   };
 
-  const generateUniqueId = () => "_" + Math.random().toString(36).substr(2, 9);
+  // Load notes from local storage
+  const loadNotesFromLocalStorage = () => {
+    const storedNotes = JSON.parse(localStorage.getItem("notes")) || [];
+    setNotes(storedNotes);
+  };
 
+  // Save notes to local storage
+  const saveNotesToLocalStorage = (newNotes) => {
+    localStorage.setItem("notes", JSON.stringify(newNotes));
+  };
+
+  // Add a new note
   const addNote = async (note) => {
-    if (!note.id) {
-      note.id = generateUniqueId(); // Assign unique id if not present
-    }
-
     if (notes.some((n) => n.title === note.title)) {
       alert("A note with this title already exists!");
       return;
     }
 
-    if (isServerOnline) {
+    if (usingLocalStorage) {
+      const updatedNotes = [...notes, note];
+      setNotes(updatedNotes);
+      saveNotesToLocalStorage(updatedNotes);
+    } else {
       try {
         await axios.post("http://127.0.0.1:5000/notes", note);
         fetchNotes();
       } catch (error) {
-        setError("Error adding note:", error);
-        setIsServerOnline(false);
+        console.error("Error adding note:", error);
+        setError("Error adding note.");
       }
-    } else {
-      // Fallback to local storage if server is offline
-      const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
-      localNotes.push(note);
-      localStorage.setItem("notes", JSON.stringify(localNotes));
-      setNotes(localNotes);
     }
   };
 
+  // Update an existing note
   const updateNote = async (id, updatedContent) => {
-    if (isServerOnline) {
+    if (usingLocalStorage) {
+      const updatedNotes = notes.map((note) =>
+        note.id === id ? { ...note, ...updatedContent } : note
+      );
+      setNotes(updatedNotes);
+      saveNotesToLocalStorage(updatedNotes);
+    } else {
       try {
         await axios.put(`http://127.0.0.1:5000/notes/${id}`, updatedContent);
         fetchNotes();
         setSelectedNote(null);
       } catch (error) {
-        setError("Error updating note:", error);
-        setIsServerOnline(false);
+        console.error("Error updating note:", error);
+        setError("Error updating note.");
       }
-    } else {
-      // Update note in local storage if server is offline
-      const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
-      const updatedNotes = localNotes.map((note) =>
-        note.id === id ? { ...note, ...updatedContent } : note
-      );
-      localStorage.setItem("notes", JSON.stringify(updatedNotes));
-      setNotes(updatedNotes);
     }
   };
 
+  // Delete a note
   const deleteNote = async (id) => {
-    if (isServerOnline) {
-      try {
-        // Delete the specific note from the server by its unique ID
-        await axios.delete(`http://127.0.0.1:5000/notes/${id}`);
-        fetchNotes(); // Refresh the list of notes
-      } catch (error) {
-        setError("Error deleting note:", error);
-        setIsServerOnline(false); // Switch to offline if there's an error
-      }
+    if (usingLocalStorage) {
+      const updatedNotes = notes.filter((note) => note.id !== id);
+      setNotes(updatedNotes);
+      saveNotesToLocalStorage(updatedNotes);
     } else {
-      // Delete the specific note from local storage by its unique ID
-      const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
-      const updatedNotes = localNotes.filter((note) => note.id !== id); // Ensure only the selected note is removed
-      localStorage.setItem("notes", JSON.stringify(updatedNotes));
-      setNotes(updatedNotes); // Update the state with the modified notes array
+      try {
+        await axios.delete(`http://127.0.0.1:5000/notes/${id}`);
+        fetchNotes();
+      } catch (error) {
+        console.error("Error deleting note:", error);
+        setError("Error deleting note.");
+      }
     }
   };
 
+  // Select a note to edit
   const selectNote = (note) => {
     setSelectedNote(note);
   };
 
+  // Toggle between dark and light themes
   const toggleTheme = () => {
     setIsDarkTheme((prevTheme) => !prevTheme);
   };
-
-  useEffect(() => {
-    fetchNotes();
-  }, [isServerOnline]); // Refetch notes if server status changes
 
   return (
     <div
