@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import NoteForm from "./NoteForm";
 import NoteList from "./NoteList";
-import axios from "axios";
 import "./App.css";
 import { FaUser } from "react-icons/fa";
 
@@ -9,119 +8,59 @@ function App() {
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [isDarkTheme, setIsDarkTheme] = useState(true);
-  const [error, setError] = useState("");
-  const [usingLocalStorage, setUsingLocalStorage] = useState(false);
 
+  // Apply theme based on the user's choice
   useEffect(() => {
     document.body.classList.add(isDarkTheme ? "dark-theme" : "light-theme");
     document.body.classList.remove(isDarkTheme ? "light-theme" : "dark-theme");
   }, [isDarkTheme]);
 
-  // Check if Flask backend is running on mount
+  // Load notes from local storage when the app loads
   useEffect(() => {
-    const checkBackend = async () => {
-      try {
-        await axios.get("http://127.0.0.1:5000/notes");
-        setUsingLocalStorage(false);
-        console.log("Connected to Flask backend.");
-        fetchNotes();
-      } catch (error) {
-        console.warn(
-          "Flask backend not available, switching to local storage."
-        );
-        setUsingLocalStorage(true);
-        loadNotesFromLocalStorage();
-      }
-    };
-    checkBackend();
+    loadNotesFromLocalStorage();
   }, []);
 
-  // Fetch notes from Flask if available, otherwise from local storage
-  const fetchNotes = async () => {
-    if (usingLocalStorage) {
-      loadNotesFromLocalStorage();
-    } else {
-      try {
-        const response = await axios.get("http://127.0.0.1:5000/notes");
-        setNotes(response.data);
-      } catch (error) {
-        console.error("Error fetching notes:", error);
-        setError("Error fetching notes.");
-      }
-    }
-  };
-
-  // Load notes from local storage
+  // Function to load notes from local storage
   const loadNotesFromLocalStorage = () => {
     const storedNotes = JSON.parse(localStorage.getItem("notes")) || [];
     setNotes(storedNotes);
   };
 
-  // Save notes to local storage
+  // Function to save notes to local storage
   const saveNotesToLocalStorage = (newNotes) => {
     localStorage.setItem("notes", JSON.stringify(newNotes));
   };
 
-  // Add a new note
-  const addNote = async (note) => {
+  // Function to add a new note
+  const addNote = (note) => {
     if (notes.some((n) => n.title === note.title)) {
       alert("A note with this title already exists!");
       return;
     }
-
-    if (usingLocalStorage) {
-      const updatedNotes = [...notes, note];
-      setNotes(updatedNotes);
-      saveNotesToLocalStorage(updatedNotes);
-    } else {
-      try {
-        await axios.post("http://127.0.0.1:5000/notes", note);
-        fetchNotes();
-      } catch (error) {
-        console.error("Error adding note:", error);
-        setError("Error adding note.");
-      }
-    }
+    const newNote = { ...note, id: Date.now() }; // Add a unique ID
+    const updatedNotes = [...notes, newNote];
+    setNotes(updatedNotes);
+    saveNotesToLocalStorage(updatedNotes);
   };
 
-  // Update an existing note
-  const updateNote = async (id, updatedContent) => {
-    if (usingLocalStorage) {
-      const updatedNotes = notes.map((note) =>
-        note.id === id ? { ...note, ...updatedContent } : note
-      );
-      setNotes(updatedNotes);
-      saveNotesToLocalStorage(updatedNotes);
-    } else {
-      try {
-        await axios.put(`http://127.0.0.1:5000/notes/${id}`, updatedContent);
-        fetchNotes();
-        setSelectedNote(null);
-      } catch (error) {
-        console.error("Error updating note:", error);
-        setError("Error updating note.");
-      }
-    }
+  // Function to update an existing note
+  const updateNote = (id, updatedContent) => {
+    const updatedNotes = notes.map((note) =>
+      note.id === id ? { ...note, ...updatedContent } : note
+    );
+    setNotes(updatedNotes);
+    saveNotesToLocalStorage(updatedNotes);
+    setSelectedNote(null);
   };
 
-  // Delete a note
-  const deleteNote = async (id) => {
-    if (usingLocalStorage) {
-      const updatedNotes = notes.filter((note) => note.id !== id);
-      setNotes(updatedNotes);
-      saveNotesToLocalStorage(updatedNotes);
-    } else {
-      try {
-        await axios.delete(`http://127.0.0.1:5000/notes/${id}`);
-        fetchNotes();
-      } catch (error) {
-        console.error("Error deleting note:", error);
-        setError("Error deleting note.");
-      }
-    }
+  // Function to delete a note by its unique ID
+  const deleteNote = (id) => {
+    const updatedNotes = notes.filter((note) => note.id !== id);
+    setNotes(updatedNotes);
+    saveNotesToLocalStorage(updatedNotes);
   };
 
-  // Select a note to edit
+  // Function to select a note for editing
   const selectNote = (note) => {
     setSelectedNote(note);
   };
@@ -158,11 +97,6 @@ function App() {
           </div>
         </div>
       </div>
-      {error && (
-        <p style={{ color: "red", textAlign: "center", marginTop: "10px" }}>
-          {error}
-        </p>
-      )}
       <main className="main-content">
         <NoteForm
           addNote={addNote}
